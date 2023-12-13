@@ -39,10 +39,10 @@ jobs:
         python3 -m pip install -U py-cord
     - name: Install requests
       run: |
-        pytion -m pip install requests
+        pip install requests
     - name: Install dorenv
       run: |
-        pytion -m pip install python-dotenv
+        pip install python-dotenv
     - name: Test with pytest
       run: |
         pytest
