@@ -11,10 +11,10 @@ from discord.ui.item import Item
 
 
 class Events:
-    def __init__(self, eventsJson = 'events.json'):
-        self.eventsJson = eventsJson
+    def __init__(self, eventsJsonPath = 'data/events.json'):
+        self.eventsJsonPath = eventsJsonPath
         try:
-            with open(self.eventsJson, encoding= 'utf-8') as f:
+            with open(self.eventsJsonPath, encoding= 'utf-8') as f:
                 self.list = json.load(f)
         except:
             self.list = []
@@ -24,13 +24,13 @@ class Events:
         if isinstance(starttime, datetime):
             starttime = starttime.strftime('%Y/%m/%d-%H:%M')
         self.list.append({'userid': userid, 'name': name, 'topic': topic, 'starttime': starttime})
-        with open(self.eventsJson, 'w+', encoding= 'utf-8') as f:
+        with open(self.eventsJsonPath, 'w+', encoding= 'utf-8') as f:
             f.write(json.dumps(self.list, sort_keys=True, indent=4))
 
     def removeEvent(self, index: int): 
         try:
             self.list.pop(index)
-            with open(self.eventsJson, 'w+', encoding= 'utf-8') as f:
+            with open(self.eventsJsonPath, 'w+', encoding= 'utf-8') as f:
                 f.write(json.dumps(self.list, sort_keys=True, indent=4))
         except:
             print('removeEvent: Index out of range.')
