@@ -17,16 +17,13 @@ class ChannelInfo:
     @classmethod
     def getFromId(cls, channelId):
         try:
-            data = cls.getJson(path=f'channels?part=snippet&id={channelId}')
-            name = data["items"][0]["snippet"]["localized"]["title"]
-        except:
-            name = None
-        try:
             data = cls.getJson(path=f'channels?part=contentDetails&id={channelId}')
             relatedPlaylistsId = data["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
             data = cls.getJson(path=f'playlistItems?part=snippet&playlistId={relatedPlaylistsId}&maxResults=1')
+            name = data["items"][0]["snippet"]["channelTitle"]
             lastUploadTime = datetime.strptime(data["items"][0]["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ")
         except:
+            name = None
             lastUploadTime = None
         return cls(name=name, lastUploadTime=lastUploadTime)
     
