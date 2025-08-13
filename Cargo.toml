@@ -1,0 +1,27 @@
+[package]
+name = "discord-bot"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[workspace]
+members = ["register"]
+
+[dependencies]
+futures = "0.3.31"
+icu = { version = "2.0.0", features = ["experimental"] }
+serde_json = "1.0.142"
+url = "2.5.4"
+worker = "0.6.1"
+
+[dependencies.serenity]
+# git = "https://github.com/serenity-rs/serenity.git"
+# branch = "next"
+path = "../serenity"
+default-features = false
+# features = ["interactions_endpoint"]
+# TODO: builder needs tokio::fs
+# features = ["builder", "interactions_endpoint"]
+features = ["wasm_builder", "interactions_endpoint"]

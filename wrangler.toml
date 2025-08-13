@@ -1,0 +1,10 @@
+name = "discord-bot"
+main = "build/worker/shim.mjs"
+compatibility_date = "2025-08-13"
+
+[build]
+command = "worker-build --release"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
