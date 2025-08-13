@@ -1,10 +1,13 @@
 use std::{borrow::Cow, error::Error};
 
 use icu::{
-    datetime::DateTimeFormatter,
-    experimental::duration::{self, DurationFormatter},
-    time::DateTime,
+    decimal::input::Decimal,
+    experimental::relativetime::{
+        RelativeTimeFormatter, RelativeTimeFormatterOptions, options::Numeric,
+    },
+    locale::locale,
 };
+use time::UtcDateTime;
 
 pub async fn upload_timer(
     channel_id: Option<&str>,
@@ -21,21 +24,29 @@ pub async fn upload_timer(
     let (channel_title, last_upload_time) =
         get_last_upload_time(youtube_api_key, &channel_id).await?;
 
-    // DurationFormatter::try_new(prefs, duration::options::)
-    // let formatter = DateTimeFormatter::try_new(icu::locale::locale!("zh-Han").into(), icu::datetime::fieldsets::M);
-    // let now = ();
-    // let time_delta = now - last_upload_time;
-    // Ok(format!("**{channel_title}** 已經 **{time_delta}** 沒有發新影片了zz"))
-
+    // TODO: somehow get a fucking localized duration string
+    // let formatter = RelativeTimeFormatter::try_new_long_second(
+    //     locale!("zh-Hant").into(),
+    //     RelativeTimeFormatterOptions {
+    //         numeric: Numeric::Auto,
+    //     },
+    // )?;
+    let now = UtcDateTime::from_unix_timestamp((js_sys::Date::now() / 1000.0) as i64)?;
+    worker::console_log!("now: {now}, last_upload_time: {last_upload_time}");
+    let time_delta = now - last_upload_time;
+    // let time_delta = formatter.format(Decimal::from((last_upload_time - now).whole_seconds()));
     Ok(format!(
-        "**{channel_title}**上次發新影片是**{last_upload_time:?}**zz"
+        "**{channel_title}** 已經 **{time_delta}** 沒有發新影片了zz"
     ))
+    // Ok(format!(
+    //     "**{channel_title}** 上次發新影片已經是 **{time_delta}** 了zz"
+    // ))
 }
 
 async fn get_last_upload_time(
     youtube_api_key: &str,
     channel_id: &str,
-) -> Result<(String, DateTime<icu::calendar::Iso>), Box<dyn Error>> {
+) -> Result<(String, UtcDateTime), Box<dyn Error>> {
     let mut response = youtube_api_fetch(
         "channels",
         &[("part", "contentDetails"), ("id", channel_id)],
@@ -79,7 +90,10 @@ async fn get_last_upload_time(
         .and_then(|x| x.get("publishedAt"))
         .and_then(|x| x.as_str())
         .ok_or_else(|| "cannot get last publish time from response body")?;
-    let last_published_at = DateTime::try_from_str(last_published_at, icu::calendar::Iso)?;
+    let last_published_at = UtcDateTime::parse(
+        last_published_at,
+        &time::format_description::well_known::Iso8601::DEFAULT,
+    )?;
 
     Ok((channel_title.to_owned(), last_published_at))
 }

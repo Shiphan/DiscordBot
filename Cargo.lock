@@ -186,6 +186,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_error_panic_hook"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -315,10 +325,13 @@ dependencies = [
 name = "discord-bot"
 version = "0.1.0"
 dependencies = [
+ "console_error_panic_hook",
  "futures",
  "icu",
+ "js-sys",
  "serde_json",
- "serenity 0.12.4",
+ "serenity 0.12.4 (git+https://github.com/Shiphan/serenity.git?branch=next)",
+ "time",
  "url",
  "worker",
 ]
@@ -1747,6 +1760,28 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d72ec4323681bf9a3cabe40fd080abc2435859b502a1b5aa9bf693f125bfa76"
+dependencies = [
+ "arrayvec",
+ "async-trait",
+ "base64",
+ "bitflags",
+ "futures",
+ "secrecy",
+ "serde",
+ "serde_cow",
+ "serde_json",
+ "time",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "serenity"
+version = "0.12.4"
+source = "git+https://github.com/Shiphan/serenity.git?branch=next#c867b438225c096f90cf1d072b146ecd9ac5387b"
 dependencies = [
  "aformat",
  "arrayvec",
@@ -1774,27 +1809,6 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "zeroize",
-]
-
-[[package]]
-name = "serenity"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d72ec4323681bf9a3cabe40fd080abc2435859b502a1b5aa9bf693f125bfa76"
-dependencies = [
- "arrayvec",
- "async-trait",
- "base64",
- "bitflags",
- "futures",
- "secrecy",
- "serde",
- "serde_cow",
- "serde_json",
- "time",
- "tokio",
- "tracing",
- "url",
 ]
 
 [[package]]

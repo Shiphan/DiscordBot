@@ -3,12 +3,13 @@ use serenity::{
     interactions_endpoint::Verifier,
     model::application::{CommandDataOptionValue, CommandInteraction, Interaction},
 };
-use worker::{Env, Headers, Request, RequestInit, Response};
+use worker::{Env, Headers, Request, Response};
 
 mod youtube_upload_timer;
 
 #[worker::event(start)]
 fn start() {
+    console_error_panic_hook::set_once();
     worker::console_log!("A message from worker::event(start)!!!");
 }
 
@@ -63,7 +64,7 @@ async fn handle_commands(command: CommandInteraction, env: Env) -> worker::Resul
                 &youtube_api_key,
             )
             .await
-            .map_err(|e| e.to_string())?;
+            .unwrap_or_else(|e| format!("error while getting upload time from youtube api: {e}"));
 
             Response::from_json(&CreateInteractionResponse::Message(
                 CreateInteractionResponseMessage::new().content(response),
