@@ -1,9 +1,10 @@
 use std::{borrow::Cow, error::Error};
 
 use icu::{
-    decimal::input::Decimal,
-    experimental::relativetime::{
-        RelativeTimeFormatter, RelativeTimeFormatterOptions, options::Numeric,
+    experimental::duration::{
+        Duration, DurationFormatter, DurationSign,
+        options::{BaseStyle, DurationFormatterOptions},
+        validated_options::ValidatedDurationFormatterOptions,
     },
     locale::locale,
 };
@@ -24,17 +25,37 @@ pub async fn upload_timer(
     let (channel_title, last_upload_time) =
         get_last_upload_time(youtube_api_key, &channel_id).await?;
 
-    // TODO: somehow get a fucking localized duration string
-    // let formatter = RelativeTimeFormatter::try_new_long_second(
-    //     locale!("zh-Hant").into(),
-    //     RelativeTimeFormatterOptions {
-    //         numeric: Numeric::Auto,
-    //     },
-    // )?;
+    let formatter = {
+        let mut options = DurationFormatterOptions::default();
+        options.base = BaseStyle::Long;
+        // let options = DurationFormatterOptions {
+        //     base: BaseStyle::Long,
+        //     ..Default::default()
+        // };
+        let options = ValidatedDurationFormatterOptions::validate(options)?;
+        DurationFormatter::try_new(locale!("zh-Hant").into(), options)?
+    };
+
     let now = UtcDateTime::from_unix_timestamp((js_sys::Date::now() / 1000.0) as i64)?;
     worker::console_log!("now: {now}, last_upload_time: {last_upload_time}");
-    let time_delta = now - last_upload_time;
-    // let time_delta = formatter.format(Decimal::from((last_upload_time - now).whole_seconds()));
+    let time_delta = {
+        let duration = now - last_upload_time;
+        Duration {
+            sign: if duration.is_negative() {
+                DurationSign::Negative
+            } else {
+                DurationSign::Positive
+            },
+            weeks: duration.whole_weeks().abs() as u64,
+            days: duration.whole_days().abs() as u64 % 7,
+            hours: duration.whole_hours().abs() as u64 % 24,
+            minutes: duration.whole_hours().abs() as u64 % 60,
+            seconds: duration.whole_seconds().abs() as u64 % 60,
+            milliseconds: duration.subsec_milliseconds().abs() as u64,
+            ..Default::default()
+        }
+    };
+    let time_delta = formatter.format(&time_delta);
     Ok(format!(
         "**{channel_title}** 已經 **{time_delta}** 沒有發新影片了zz"
     ))
