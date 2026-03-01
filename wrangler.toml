@@ -8,3 +8,12 @@ command = "worker-build --release"
 [observability]
 enabled = true
 head_sampling_rate = 1
+
+[durable_objects]
+bindings = [
+  { name = "WORLDCLOCK", class_name = "Clock" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Clock"]

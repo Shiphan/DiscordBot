@@ -29,6 +29,12 @@ fn main() {
                 ),
             ]),
         CreateCommand::new("hi").description("this is a command that will (should) not response"),
+        CreateCommand::new("clock")
+            .description("Use IANA time zone ID, split by spaces")
+            .set_options(vec![
+                CreateCommandOption::new(CommandOptionType::String, "timezones", "Time Zones")
+                    .required(true),
+            ]),
     ];
 
     let response = register_commands(&commands, &application_id, &token);
@@ -39,6 +45,7 @@ fn main() {
     }
 }
 
+// <https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-global-application-commands>
 fn register_commands(
     commands: &[serenity::builder::CreateCommand],
     application_id: &str,

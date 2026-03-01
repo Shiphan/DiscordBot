@@ -1,10 +1,13 @@
 use serenity::{
-    builder::{CreateInteractionResponse, CreateInteractionResponseMessage},
+    all::ComponentInteraction,
+    builder::{CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage},
     interactions_endpoint::Verifier,
     model::application::{CommandDataOptionValue, CommandInteraction, Interaction},
+    small_fixed_array::FixedString,
 };
-use worker::{Env, Headers, Request, Response};
+use worker::{Env, Headers, Method, Request, Response, RouteContext, Router};
 
+mod world_clock;
 mod youtube_upload_timer;
 
 #[worker::event(start)]
@@ -14,18 +17,23 @@ fn start() {
 }
 
 #[worker::event(fetch)]
-pub async fn main(mut req: Request, env: Env, _ctx: worker::Context) -> worker::Result<Response> {
-    let path = req.path();
-    if path == "/hello" {
-        return Response::ok("Hello!!");
-    }
-    if path != "/" {
-        worker::console_log!("path == {}", req.path());
-        return Response::error("Not found", 400);
-    }
+pub async fn main(req: Request, env: Env, ctx: worker::Context) -> worker::Result<Response> {
+    Router::new()
+        .get("/hello", |_, _| Response::ok("Hello!!"))
+        .post_async("/", |req, route_context| {
+            bot_handler(req, route_context, &ctx)
+        })
+        .run(req, env)
+        .await
+}
 
+async fn bot_handler(
+    mut req: Request,
+    route_context: RouteContext<()>,
+    ctx: &worker::Context,
+) -> worker::Result<Response> {
     // request to command and it's args
-    let public_key = env.secret("DISCORD_PUBLIC_KEY")?.to_string();
+    let public_key = route_context.secret("DISCORD_PUBLIC_KEY")?.to_string();
     let verifier = Verifier::new(&public_key);
     let body = req.bytes().await?;
     match verify(req.headers(), &body, &verifier) {
@@ -37,16 +45,22 @@ pub async fn main(mut req: Request, env: Env, _ctx: worker::Context) -> worker::
 
     let result = match interaction {
         Interaction::Ping(_) => Response::from_json(&CreateInteractionResponse::Pong),
-        Interaction::Command(data) => handle_commands(data, env).await,
+        Interaction::Command(data) => handle_commands(data, route_context, ctx).await,
+        Interaction::Component(data) => handle_component(data, route_context).await,
         _ => Response::error("Unknown Type", 400),
     };
 
-    worker::console_log!("{result:?}");
+    // worker::console_log!("body = {:?}, result = {result:?}", result.and_then(|x| x.cloned()).and_then(|x| futures::executor::block_on(x.text())));
 
     result
 }
 
-async fn handle_commands(command: CommandInteraction, env: Env) -> worker::Result<Response> {
+async fn handle_commands(
+    command: CommandInteraction,
+    route_context: RouteContext<()>,
+    ctx: &worker::Context,
+) -> worker::Result<Response> {
+    worker::console_log!("application id = {}", command.application_id);
     let Ok(command) = Command::try_from(command) else {
         return Response::error("Unknown Type", 400);
     };
@@ -57,7 +71,7 @@ async fn handle_commands(command: CommandInteraction, env: Env) -> worker::Resul
             channel_id,
             search_keyword,
         } => {
-            let youtube_api_key = env.secret("YOUTUBE_API_KEY")?.to_string();
+            let youtube_api_key = route_context.secret("YOUTUBE_API_KEY")?.to_string();
             let response = youtube_upload_timer::upload_timer(
                 channel_id.as_deref(),
                 search_keyword.as_deref(),
@@ -70,6 +84,42 @@ async fn handle_commands(command: CommandInteraction, env: Env) -> worker::Resul
                 CreateInteractionResponseMessage::new().content(response),
             ))
         }
+        Command::Clock {
+            time_zones,
+            interaction_token,
+        } => Response::from_json(&CreateInteractionResponse::Message(
+            CreateInteractionResponseMessage::new()
+                .content(
+                    world_clock::clock(time_zones, interaction_token, route_context, ctx).await,
+                )
+                .button(
+                    CreateButton::new("world_clock/stop")
+                        .label("Stop")
+                        .emoji('\u{1F6D1}'),
+                ),
+        )),
+    }
+}
+
+async fn handle_component(
+    interaction: ComponentInteraction,
+    route_context: RouteContext<()>,
+) -> worker::Result<Response> {
+    match interaction.data.custom_id.as_ref() {
+        "world_clock/stop" => {
+            let channel_id = &interaction.channel_id;
+            let message_id = &interaction.message.id;
+            let namespace = route_context.durable_object("WORLDCLOCK")?;
+            let stub = namespace
+                .id_from_name(&format!("{channel_id}/{message_id}"))?
+                .get_stub()?;
+            stub.fetch_with_request(Request::new("http://domain/delete", Method::Delete)?)
+                .await?;
+            Response::from_json(&CreateInteractionResponse::UpdateMessage(
+                CreateInteractionResponseMessage::new().components(&[]),
+            ))
+        }
+        _ => Response::error("", 404),
     }
 }
 
@@ -77,6 +127,10 @@ enum Command {
     UploadTimer {
         channel_id: Option<String>,
         search_keyword: Option<String>,
+    },
+    Clock {
+        time_zones: String,
+        interaction_token: FixedString<u32>,
     },
 }
 
@@ -107,6 +161,17 @@ impl TryFrom<CommandInteraction> for Command {
                     search_keyword,
                 })
             }
+            "clock" => value
+                .data
+                .options
+                .iter()
+                .find(|x| x.name == "timezones")
+                .and_then(|x| x.value.as_str())
+                .map(|x| Self::Clock {
+                    time_zones: x.to_owned(),
+                    interaction_token: value.token,
+                })
+                .ok_or(()),
             _ => Err(()),
         }
     }
